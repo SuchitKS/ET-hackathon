@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { ArrowUp, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Loader2 } from "lucide-react";
+import "./ChatInput.css";
 
 export default function ChatInput({
   onSend,
@@ -9,6 +10,11 @@ export default function ChatInput({
   disabled?: boolean;
 }) {
   const [value, setValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!disabled) inputRef.current?.focus();
+  }, [disabled]);
 
   function submit() {
     const trimmed = value.trim();
@@ -18,26 +24,56 @@ export default function ChatInput({
   }
 
   return (
-    <div className="border-t border-line bg-paper p-4">
-      <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 shadow-soft focus-within:border-amber/50">
-        <input
-          value={value}
-          disabled={disabled}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder="Ask about an asset, a failure, or a procedure…"
-          className="flex-1 bg-transparent py-1.5 text-[13.5px] text-ink placeholder:text-faint focus:outline-none"
-        />
-        <button
-          onClick={submit}
-          disabled={disabled || !value.trim()}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber text-paper transition-opacity disabled:opacity-30"
-        >
-          {disabled ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
-        </button>
-      </div>
-      <div className="mx-auto mt-2 max-w-3xl text-[11.5px] text-faint">
-        Routed automatically to Retrieval, RCA, Compliance, or Work Order based on intent.
+    <div className="chat-input-wrapper">
+      <div className="grid-bg" />
+      <div id="poda">
+        <div className="glow" />
+        <div className="darkBorderBg" />
+        <div className="darkBorderBg" />
+        <div className="darkBorderBg" />
+
+        <div className="white" />
+
+        <div className="border" />
+
+        <div id="main">
+          <input
+            ref={inputRef}
+            placeholder="Search..."
+            type="text"
+            name="text"
+            className="input"
+            value={value}
+            disabled={disabled}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            autoComplete="off"
+            spellCheck="false"
+          />
+          <div id="input-mask" />
+          <div id="accent-mask" />
+          
+          <div id="search-icon">
+            {disabled ? (
+              <Loader2 size={18} className="animate-spin text-faint" strokeWidth={2} />
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width={24}
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                height={24}
+                fill="none"
+                className="feather feather-search"
+              >
+                <circle stroke="#c0b9c0" r={8} cy={11} cx={11} />
+                <line stroke="#c0b9c0" y2="16.65" y1={22} x2="16.65" x1={22} />
+              </svg>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

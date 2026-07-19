@@ -65,6 +65,10 @@ export interface ChatMessage {
   traceSummary?: string;
   /** Set when this message represents a failed request, not an answer. */
   isError?: boolean;
+  /** Parent message ID for follow-up threading */
+  parentId?: string;
+  /** Follow-up messages attached to this investigation card */
+  followUps?: ChatMessage[];
 }
 
 export interface WorkOrder {
@@ -76,4 +80,5 @@ export interface WorkOrder {
   downtimeAvoidedHrs: number;
   linkedDocs: string[];
   generatedAt: string;
+  pdfUrl?: string | null;
 }

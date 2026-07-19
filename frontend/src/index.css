@@ -1,13 +1,8 @@
-@import "@fontsource/fraunces/400.css";
-@import "@fontsource/fraunces/500.css";
-@import "@fontsource/fraunces/600.css";
-@import "@fontsource/fraunces/600-italic.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
-@import "@fontsource/ibm-plex-sans/400.css";
-@import "@fontsource/ibm-plex-sans/500.css";
-@import "@fontsource/ibm-plex-sans/600.css";
-@import "@fontsource/ibm-plex-sans/700.css";
 
 @tailwind base;
 @tailwind components;
@@ -19,78 +14,187 @@
   }
 
   body {
-    @apply bg-paper text-ink font-sans antialiased;
-    background-image: radial-gradient(ellipse 1000px 560px at 12% -8%, rgba(181, 101, 29, 0.06), transparent);
+    @apply font-sans antialiased text-ink;
+    background-color: #0B0B0C;
+    background-image: 
+      radial-gradient(circle at 15% 0%, rgba(255, 255, 255, 0.02) 0%, transparent 40%),
+      radial-gradient(circle at 85% 100%, rgba(255, 255, 255, 0.015) 0%, transparent 40%);
     background-attachment: fixed;
   }
 
   ::selection {
-    background: rgba(181, 101, 29, 0.18);
+    background: rgba(255, 255, 255, 0.08);
   }
 
   :focus-visible {
-    outline: 2px solid theme("colors.amber");
-    outline-offset: 2px;
-    border-radius: 3px;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.08);
   }
 
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+}
+
+@layer components {
+  /* Glass — extremely subtle for premium depth */
+  .glass {
+    background: rgba(22, 22, 24, 0.55);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
-  ::-webkit-scrollbar-track {
-    background: transparent;
+
+  /* Investigation card — structured response container */
+  .investigation-card {
+    @apply rounded-xl bg-surface;
+    box-shadow: 0 4px 20px -2px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.04);
   }
-  ::-webkit-scrollbar-thumb {
-    background: #DCD2B8;
-    border-radius: 6px;
+
+  /* Markdown answers */
+  .prose-strata {
+    @apply prose prose-invert max-w-none;
+    font-size: 13.5px;
+    line-height: 1.75;
+    --tw-prose-body: #A1A1AA;
+    --tw-prose-headings: #E4E4E7;
+    --tw-prose-bold: #E4E4E7;
+    --tw-prose-links: #E4E4E7;
+    --tw-prose-bullets: #63636E;
+    --tw-prose-hr: rgba(255,255,255,0.06);
+    --tw-prose-code: #E4E4E7;
+    --tw-prose-quotes: #A1A1AA;
+    --tw-prose-quote-borders: rgba(255,255,255,0.06);
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #CBBE9C;
+  .prose-strata p { margin-top: 0.75em; margin-bottom: 0.75em; }
+  .prose-strata h1, .prose-strata h2 { margin-top: 1.25em; margin-bottom: 0.5em; font-weight: 500; letter-spacing: -0.01em; }
+  .prose-strata h3 { 
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #63636E;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding-bottom: 6px;
+    margin-top: 2.5em;
+    margin-bottom: 1em;
   }
+  .prose-strata code { font-size: 12px; }
+  .prose-strata pre { background: #111113; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; }
 }
 
 @layer utilities {
-  .label-sm {
-    @apply font-sans text-[12px] font-medium text-soft;
+  .text-section {
+    @apply font-sans uppercase text-faint;
+    font-size: 13px;
+    line-height: 20px;
+    letter-spacing: 0.08em;
+    font-weight: 600;
   }
 
-  .data-tag {
-    @apply font-mono text-[11.5px] text-soft;
+  .text-caption {
+    @apply font-mono uppercase text-faint;
+    font-size: 10px;
+    line-height: 14px;
+    letter-spacing: 0.08em;
+    font-weight: 600;
   }
+}
 
-  .grid-surface {
-    background-color: theme("colors.paper");
-    background-image: theme("backgroundImage.grid");
-    background-size: theme("backgroundSize.grid");
-  }
+/* Uiverse Input Animations (Monochrome) */
+.uiverse-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
 
-  .card {
-    @apply bg-surface border border-line rounded-xl shadow-soft;
-  }
+.uiverse-darkBg,
+.uiverse-border,
+.uiverse-glow {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: -1;
+  filter: blur(2px);
+}
 
-  /* Markdown answer bodies from the LLM render through here */
-  .prose-strata {
-    @apply prose prose-sm max-w-none;
-    --tw-prose-body: theme("colors.ink" / 88%);
-    --tw-prose-headings: theme("colors.ink");
-    --tw-prose-bold: theme("colors.ink");
-    --tw-prose-links: theme("colors.amber");
-    --tw-prose-bullets: theme("colors.faint");
-    --tw-prose-hr: theme("colors.line");
-    --tw-prose-code: theme("colors.ink");
-    --tw-prose-quotes: theme("colors.soft");
-    --tw-prose-quote-borders: theme("colors.line");
+.uiverse-darkBg::before,
+.uiverse-border::before,
+.uiverse-glow::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200%;
+  height: 500%;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  transition: all 2s;
+}
+
+.uiverse-darkBg::before {
+  background-image: conic-gradient(
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent 10%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.05),
+    transparent 60%
+  );
+}
+
+.uiverse-border {
+  filter: blur(0.5px);
+}
+.uiverse-border::before {
+  background-image: conic-gradient(
+    #1c191c,
+    rgba(255, 255, 255, 0.2) 5%,
+    #1c191c 14%,
+    #1c191c 50%,
+    rgba(255, 255, 255, 0.2) 60%,
+    #1c191c 64%
+  );
+}
+
+.uiverse-glow {
+  filter: blur(20px);
+  opacity: 0.3;
+}
+.uiverse-glow::before {
+  background-image: conic-gradient(
+    #000,
+    rgba(255, 255, 255, 0.3) 5%,
+    #000 38%,
+    #000 50%,
+    rgba(255, 255, 255, 0.3) 60%,
+    #000 87%
+  );
+}
+
+.uiverse-wrapper:focus-within .uiverse-darkBg::before,
+.uiverse-wrapper:focus-within .uiverse-border::before,
+.uiverse-wrapper:focus-within .uiverse-glow::before {
+  animation: rotate-border 4s linear infinite;
+}
+
+@keyframes rotate-border {
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
   }
 }

@@ -1,105 +1,140 @@
 import { useState } from "react";
-import { ChevronDown, AlertTriangle } from "lucide-react";
+import { ChevronDown, AlertTriangle, ArrowRight } from "lucide-react";
 import type { ChatMessage } from "@/types";
-import { agentTone } from "./AgentBadge";
 import CitationTag from "./CitationTag";
 import FindingCard from "./FindingCard";
 import AgentPipeline from "./AgentPipeline";
-import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { formatTimestamp } from "@/lib/utils";
-
-const BORDER_TONE: Record<string, string> = {
-  amber: "border-l-amber",
-  teal: "border-l-teal",
-  rust: "border-l-rust",
-  plum: "border-l-plum",
-  neutral: "border-l-line",
-};
 
 export default function ChatMessageItem({
   message,
   initiallyExpanded = false,
+  onFollowUp,
+  onShowEvidence,
 }: {
   message: ChatMessage;
   initiallyExpanded?: boolean;
+  onFollowUp?: (parentId: string, text: string) => void;
+  onShowEvidence?: (id: string) => void;
 }) {
-  const [showRouting, setShowRouting] = useState(initiallyExpanded);
+  const [showTrace, setShowTrace] = useState(initiallyExpanded);
+  const [followUpInput, setFollowUpInput] = useState("");
 
+  // User message — minimal right-aligned
   if (message.role === "user") {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2 }}
-        className="flex justify-end"
-      >
-        <div className="max-w-[75%] rounded-xl rounded-tr-sm border border-line bg-surface px-4 py-2.5 text-[13.5px] leading-snug text-ink shadow-soft">
+      <div className="flex justify-end mb-4 pr-2">
+        <div className="max-w-[85%] text-[15px] leading-relaxed text-ink/90 font-medium tracking-tight">
           {message.text}
         </div>
-      </motion.div>
+      </div>
     );
   }
 
+  // Error message
   if (message.isError) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
-        className="card flex items-start gap-2.5 border-l-2 border-l-rust bg-rust/5 p-4"
-      >
-        <AlertTriangle size={15} className="mt-0.5 shrink-0 text-rust" />
-        <div className="min-w-0">
-          <div className="text-[13px] font-medium text-rust">Request failed</div>
-          <div className="mt-0.5 text-[13px] leading-snug text-ink/80">{message.text}</div>
+      <div className="investigation-card border-l-2 border-l-failure p-5 mb-6">
+        <div className="flex items-start gap-3">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-failure" strokeWidth={2.5} />
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold tracking-wider uppercase text-failure mb-1">Request Failed</div>
+            <div className="text-[13.5px] leading-relaxed text-soft">{message.text}</div>
+          </div>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
-  const tone = agentTone(message.agent);
-
+  // Investigation Card — the main response format
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      className={`card border-l-2 ${BORDER_TONE[tone]} p-4`}
-    >
-      <div className="mb-3 flex items-center justify-between">
-        {message.agent && (
-          <button
-            onClick={() => setShowRouting((v) => !v)}
-            className="flex items-center gap-1.5 text-[12px] font-medium text-soft hover:text-ink"
-          >
-            <ChevronDown size={13} className={`transition-transform ${showRouting ? "rotate-180" : ""}`} />
-            View agent routing
-          </button>
-        )}
-        <span className="text-[11.5px] text-faint">{formatTimestamp(message.timestamp)}</span>
-      </div>
-
-      {showRouting && message.agent && (
-        <div className="mb-4">
+    <div className="investigation-card mb-8 animate-fade-in flex flex-col overflow-hidden bg-surface border border-line rounded-xl shadow-soft">
+      {/* Header — Trace Summary */}
+      {message.agent && (
+        <div className="border-b border-line/50">
           <AgentPipeline agent={message.agent} mode="static" traceSummary={message.traceSummary} />
         </div>
       )}
 
-      <div className="prose-strata">
-        <ReactMarkdown>{message.text}</ReactMarkdown>
+      {/* Answer Content */}
+      <div className="px-8 py-8">
+        <div className="prose-strata">
+          <ReactMarkdown>{message.text}</ReactMarkdown>
+        </div>
       </div>
 
-      {message.citations && message.citations.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[12px] text-soft">Sources</span>
-          {message.citations.map((c) => (
-            <CitationTag key={c.id} citation={c} />
-          ))}
+      {/* Citations & Evidence Links */}
+      {(message.citations?.length || message.finding) && (
+        <div className="border-t border-line/50 px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface2/10">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[10px] font-semibold tracking-wider text-faint uppercase mr-1">Sources</span>
+            {message.citations?.map((c) => (
+              <CitationTag key={c.id} citation={c} />
+            ))}
+          </div>
+          <div className="flex items-center shrink-0">
+            {onShowEvidence && (
+              <button
+                onClick={() => onShowEvidence(message.id)}
+                className="text-[11.5px] font-medium text-ink hover:text-ink/70 transition-colors underline decoration-line/40 underline-offset-4"
+              >
+                Inspect Evidence
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {message.finding && <FindingCard finding={message.finding} />}
-    </motion.div>
+      {/* Structured Finding (if available) */}
+      {message.finding && (
+        <div className="border-t border-line/50 px-8 py-6 bg-surface2/5">
+          <FindingCard finding={message.finding} />
+        </div>
+      )}
+
+      {/* Threaded Follow-ups */}
+      {message.followUps && message.followUps.length > 0 && (
+        <div className="border-t border-line/50 bg-background/30">
+          <div className="ml-8 border-l border-line/30 pl-6 py-6 space-y-8">
+            {message.followUps.map((fu) => (
+              <ChatMessageItem key={fu.id} message={fu} onFollowUp={onFollowUp} onShowEvidence={onShowEvidence} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Inline Follow-up Input */}
+      {onFollowUp && (
+        <div className="border-t border-line/50 bg-surface/40 p-6 backdrop-blur-sm mt-auto shrink-0">
+          <div className="flex items-center gap-3 rounded-lg bg-background/60 border border-line/60 px-4 py-2.5 focus-within:border-lineH focus-within:shadow-[0_0_12px_rgba(255,255,255,0.03)] transition-all">
+            <input
+              value={followUpInput}
+              onChange={(e) => setFollowUpInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && followUpInput.trim()) {
+                   onFollowUp(message.id, followUpInput.trim());
+                   setFollowUpInput("");
+                }
+              }}
+              placeholder="Ask a follow-up question…"
+              className="flex-1 bg-transparent py-1 text-[13px] text-ink placeholder:text-faint/60 focus:outline-none"
+            />
+            <button
+              onClick={() => {
+                if (followUpInput.trim()) {
+                  onFollowUp(message.id, followUpInput.trim());
+                  setFollowUpInput("");
+                }
+              }}
+              disabled={!followUpInput.trim()}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-ink/10 text-ink transition-colors hover:bg-ink/20 disabled:opacity-20"
+            >
+              <ArrowRight size={14} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

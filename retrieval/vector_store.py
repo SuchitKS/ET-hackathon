@@ -75,9 +75,23 @@ class VectorStore:
             self.client = QdrantClient(location=":memory:") # Fallback
             print("Using in-memory Qdrant (no QDRANT_URL provided in .env)")
         
-        print(f"Loading embedding model: {EMBEDDING_MODEL}")
-        self.encoder = SentenceTransformer(EMBEDDING_MODEL)
-        self.vector_size = self.encoder.get_sentence_embedding_dimension()
+        # Lazy-load the embedding model on first use to avoid
+        # MemoryError / paging-file crashes at startup on low-RAM machines.
+        self._encoder = None
+        self._vector_size = None
+
+    @property
+    def encoder(self):
+        if self._encoder is None:
+            print(f"Loading embedding model: {EMBEDDING_MODEL}")
+            self._encoder = SentenceTransformer(EMBEDDING_MODEL)
+        return self._encoder
+
+    @property
+    def vector_size(self):
+        if self._vector_size is None:
+            self._vector_size = self.encoder.get_sentence_embedding_dimension()
+        return self._vector_size
 
     def add(self, doc_id: str, text: str, metadata: dict):
         """Add a whole document (no chunking). Backward compatible."""

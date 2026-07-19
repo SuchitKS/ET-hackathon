@@ -12,6 +12,7 @@
     "@fontsource/fraunces": "^5.0.20",
     "@fontsource/ibm-plex-mono": "^5.0.13",
     "@fontsource/ibm-plex-sans": "^5.0.20",
+    "@fontsource/inter": "^5.3.0",
     "@tailwindcss/typography": "^0.5.20",
     "d3-force": "^3.0.0",
     "framer-motion": "^11.2.10",

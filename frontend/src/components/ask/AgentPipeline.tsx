@@ -1,156 +1,167 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { GitFork, Search, Wrench, ShieldCheck, FileOutput, Loader2, Check } from "lucide-react";
+import { GitFork, Search, Wrench, ShieldCheck, FileOutput, Loader2, Check, Database, Network, History, Sparkles, ShieldQuestion } from "lucide-react";
 import type { AgentName } from "@/types";
 
-type Stage = "classifying" | "working" | "done";
+type StageStatus = "pending" | "active" | "done";
 
-const AGENTS: Record<AgentName, { label: string; icon: typeof Search; accent: string; steps: string[] }> = {
-  retrieval: {
-    label: "Retrieval agent",
-    icon: Search,
-    accent: "#2B6B54",
-    steps: ["Embedding the question…", "Searching the knowledge graph…", "Ranking matching sources…"],
-  },
-  rca: {
-    label: "RCA agent",
-    icon: Wrench,
-    accent: "#B5651D",
-    steps: ["Traversing failure history…", "Cross-referencing procedures…", "Computing downtime impact…"],
-  },
-  compliance: {
-    label: "Compliance agent",
-    icon: ShieldCheck,
-    accent: "#A13F28",
-    steps: ["Loading the regulation checklist…", "Comparing against the procedure…", "Flagging gaps…"],
-  },
-  workorder: {
-    label: "Work order agent",
-    icon: FileOutput,
-    accent: "#7C5285",
-    steps: ["Drafting the recommended action…", "Linking source documents…", "Formatting the work order…"],
-  },
+interface PipelineStage {
+  id: string;
+  label: string;
+  icon: typeof Search;
+  liveTexts: string[];
+}
+
+const COMMON_STAGES: PipelineStage[] = [
+  { id: "intent", label: "Intent Detection", icon: GitFork, liveTexts: ["Classifying query intent…", "Identifying target assets…"] },
+  { id: "retrieval", label: "Knowledge Retrieval", icon: Search, liveTexts: ["Embedding question…", "Searching document corpus…", "Ranking results…"] },
+  { id: "graph", label: "Graph Traversal", icon: Network, liveTexts: ["Querying knowledge graph…", "Tracing relationships…"] },
+  { id: "history", label: "Historical Search", icon: History, liveTexts: ["Searching historical incidents…", "Finding similar failures…"] },
+];
+
+const AGENT_STAGES: Record<AgentName, PipelineStage[]> = {
+  retrieval: [
+    ...COMMON_STAGES,
+    { id: "synthesis", label: "Synthesis", icon: Sparkles, liveTexts: ["Synthesizing findings…", "Computing confidence…"] },
+    { id: "validate", label: "Validation", icon: ShieldQuestion, liveTexts: ["Validating sources…"] },
+    { id: "generate", label: "Response Generation", icon: Database, liveTexts: ["Generating explanation…", "Formatting response…"] },
+  ],
+  rca: [
+    ...COMMON_STAGES,
+    { id: "rca", label: "Root Cause Analysis", icon: Wrench, liveTexts: ["Building failure timeline…", "Cross-referencing procedures…", "Computing downtime impact…"] },
+    { id: "validate", label: "Validation", icon: ShieldQuestion, liveTexts: ["Validating analysis…"] },
+    { id: "generate", label: "Response Generation", icon: Database, liveTexts: ["Generating explanation…", "Formatting response…"] },
+  ],
+  compliance: [
+    ...COMMON_STAGES,
+    { id: "compliance", label: "Compliance Validation", icon: ShieldCheck, liveTexts: ["Loading regulation checklist…", "Comparing against procedures…", "Flagging gaps…"] },
+    { id: "validate", label: "Validation", icon: ShieldQuestion, liveTexts: ["Validating findings…"] },
+    { id: "generate", label: "Response Generation", icon: Database, liveTexts: ["Generating explanation…", "Formatting response…"] },
+  ],
+  workorder: [
+    ...COMMON_STAGES,
+    { id: "workorder", label: "Work Order Draft", icon: FileOutput, liveTexts: ["Drafting recommended action…", "Linking source documents…", "Formatting work order…"] },
+    { id: "validate", label: "Validation", icon: ShieldQuestion, liveTexts: ["Validating work order…"] },
+    { id: "generate", label: "Response Generation", icon: Database, liveTexts: ["Generating explanation…", "Formatting response…"] },
+  ],
 };
-
-const ORDER: AgentName[] = ["retrieval", "rca", "compliance", "workorder"];
 
 export default function AgentPipeline({
   agent,
   mode,
   traceSummary,
-  onComplete,
 }: {
   agent: AgentName;
   mode: "live" | "static";
   traceSummary?: string;
-  onComplete?: () => void;
 }) {
-  const [stage, setStage] = useState<Stage>(mode === "static" ? "done" : "classifying");
-  const [stepIndex, setStepIndex] = useState(0);
-  const active = AGENTS[agent];
-  const others = ORDER.filter((a) => a !== agent);
+  const stages = AGENT_STAGES[agent];
+  const [currentStage, setCurrentStage] = useState(mode === "static" ? stages.length : 0);
+  const [liveTextIndex, setLiveTextIndex] = useState(0);
 
   useEffect(() => {
     if (mode !== "live") return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    timers.push(setTimeout(() => setStage("working"), 500));
-    active.steps.forEach((_, i) => {
-      timers.push(setTimeout(() => setStepIndex(i), 500 + i * 480));
-    });
-    timers.push(
-      setTimeout(() => {
-        setStage("done");
-        onComplete?.();
-      }, 500 + active.steps.length * 480 + 250)
-    );
+    let stageIdx = 0;
+    let delay = 300;
+
+    function advanceStage() {
+      if (stageIdx >= stages.length) return;
+      setCurrentStage(stageIdx + 1);
+      const stage = stages[stageIdx];
+
+      stage.liveTexts.forEach((_, tIdx) => {
+        timers.push(setTimeout(() => setLiveTextIndex(tIdx), delay + tIdx * 400));
+      });
+
+      delay += stage.liveTexts.length * 400 + 200;
+      stageIdx++;
+      timers.push(setTimeout(advanceStage, delay - 200));
+    }
+
+    timers.push(setTimeout(advanceStage, 300));
     return () => timers.forEach(clearTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, agent]);
 
-  const Icon = active.icon;
-
-  return (
-    <div className="rounded-xl border border-line bg-surface2/60 p-4">
-      <div className="flex items-center gap-2.5">
-        <motion.span
-          animate={stage === "classifying" ? { scale: [1, 1.1, 1] } : { scale: 1 }}
-          transition={{ duration: 0.8, repeat: stage === "classifying" ? Infinity : 0 }}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-surface"
-        >
-          <GitFork size={14} className="text-ink" />
-        </motion.span>
-        <div>
-          <div className="text-[12.5px] font-medium text-ink">Supervisor</div>
-          <div className="text-[11px] text-faint">
-            {stage === "classifying" ? "Classifying intent…" : `Routed to ${active.label.toLowerCase()}`}
-          </div>
+  // Collapsed Static View — Prominent trace header
+  if (mode === "static") {
+    return (
+      <div className="flex items-center gap-3 rounded-t-xl bg-surface2/60 px-5 py-3 border-b border-line">
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-success/20 border border-success/30 shadow-[0_0_8px_rgba(34,197,94,0.1)]">
+          <Check size={11} className="text-success" strokeWidth={3} />
         </div>
-      </div>
-
-      <div className="ml-4 h-4 w-px" style={{ backgroundColor: stage === "classifying" ? "#E6DECB" : active.accent }} />
-
-      <div
-        className="rounded-lg border p-3.5"
-        style={{
-          borderColor: stage === "classifying" ? "#E6DECB" : `${active.accent}40`,
-          backgroundColor: stage === "classifying" ? "transparent" : `${active.accent}0C`,
-        }}
-      >
-        <div className="flex items-center gap-2.5">
-          <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border"
-            style={{
-              borderColor: stage === "classifying" ? "#E6DECB" : active.accent,
-              backgroundColor: stage === "classifying" ? "transparent" : `${active.accent}18`,
-            }}
-          >
-            {stage === "working" ? (
-              <Loader2 size={13} className="animate-spin" color={active.accent} />
-            ) : stage === "done" ? (
-              <Check size={13} color={active.accent} />
-            ) : (
-              <Icon size={13} className="text-faint" />
-            )}
+        <div className="flex flex-col">
+          <span className="text-[12px] font-semibold tracking-wide uppercase text-ink">
+            {agent} Agent
           </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-ink">{active.label}</div>
-            <AnimatePresence mode="wait">
-              {stage === "working" && (
-                <motion.div
-                  key={stepIndex}
-                  initial={{ opacity: 0, y: 3 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -3 }}
-                  transition={{ duration: 0.18 }}
-                  className="text-[11.5px] text-soft"
-                >
-                  {active.steps[stepIndex]}
-                </motion.div>
-              )}
-              {stage === "done" && traceSummary && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="text-[11.5px] leading-snug text-soft"
-                >
-                  {traceSummary}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <span className="text-[11px] text-faint">
+            {stages.length} Stages Completed {traceSummary ? `• ${traceSummary}` : ""}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Live Mode — Floating Center Overlay
+  return (
+    <div className="glass flex w-full max-w-[340px] flex-col rounded-2xl p-6 shadow-lift animate-fade-in">
+      <div className="mb-6 flex items-center gap-3 border-b border-line pb-4">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-ink/10 text-ink">
+          <Loader2 size={13} className="animate-spin" strokeWidth={2.5} />
+        </div>
+        <div>
+          <div className="text-[14px] font-semibold tracking-tight text-ink">Orchestrating Agents</div>
+          <div className="text-[11px] text-faint mt-0.5">Routing to {agent.toUpperCase()} specialist…</div>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3 pl-1">
-        <span className="text-[10.5px] text-faint">Not routed:</span>
-        {others.map((key) => {
-          const meta = AGENTS[key];
-          const OIcon = meta.icon;
+      <div className="space-y-0 pl-1">
+        {stages.map((stage, idx) => {
+          const status: StageStatus = idx < currentStage ? "done" : idx === currentStage ? "active" : "pending";
+          const Icon = stage.icon;
+          const isLast = idx === stages.length - 1;
+
           return (
-            <span key={key} className="flex items-center gap-1 text-[10.5px] text-faint">
-              <OIcon size={11} />
-              {meta.label.replace(" agent", "")}
-            </span>
+            <div key={stage.id} className="flex gap-4">
+              <div className="flex flex-col items-center">
+                <div className={`relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all duration-300 ${
+                  status === "done" ? "bg-success/20 shadow-[0_0_8px_rgba(34,197,94,0.2)]" :
+                  status === "active" ? "bg-ink/15 scale-110 shadow-[0_0_12px_rgba(255,255,255,0.1)]" :
+                  "bg-surface3"
+                }`}>
+                  {status === "done" ? (
+                    <Check size={11} className="text-success" strokeWidth={3} />
+                  ) : status === "active" ? (
+                    <Icon size={11} className="text-ink animate-pulse" strokeWidth={2} />
+                  ) : (
+                    <Icon size={10} className="text-faint/50" strokeWidth={2} />
+                  )}
+                </div>
+                {!isLast && (
+                  <div className="relative w-[1.5px] flex-1 min-h-[22px] bg-line overflow-hidden my-0.5">
+                    {/* Animated connecting line effect */}
+                    {status === "active" && (
+                      <div className="absolute left-0 top-0 w-full h-full animate-[slideDown_1s_ease-in-out_infinite] bg-gradient-to-b from-transparent via-ink/40 to-transparent" />
+                    )}
+                    {status === "done" && (
+                      <div className="absolute left-0 top-0 w-full h-full bg-success/30" />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className={`pb-4 pt-0.5 transition-all duration-300 ${status === "pending" ? "opacity-20 translate-x-1" : "opacity-100 translate-x-0"}`}>
+                <div className={`text-[13px] font-medium ${
+                  status === "active" ? "text-ink" : status === "done" ? "text-soft" : "text-faint"
+                }`}>
+                  {stage.label}
+                </div>
+                {status === "active" && (
+                  <div className="mt-1 text-[11.5px] text-faint animate-fade-in">
+                    {stage.liveTexts[Math.min(liveTextIndex, stage.liveTexts.length - 1)]}
+                  </div>
+                )}
+              </div>
+            </div>
           );
         })}
       </div>

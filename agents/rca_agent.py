@@ -18,7 +18,16 @@ SYSTEM_PROMPT = (
     "issues and summarise the maintenance history in date order. "
     "ALWAYS cite the source filename for every claim. "
     "ALWAYS include the computed downtime numbers in your summary — these are "
-    "factual figures, not estimates. State them clearly."
+    "factual figures, not estimates. State them clearly.\n\n"
+    "CRITICAL: You MUST format your response using EXACTLY these Markdown headings:\n"
+    "### Root Cause Summary\n"
+    "(Brief summary of the root cause)\n\n"
+    "### Timeline of Events\n"
+    "(Chronological breakdown)\n\n"
+    "### Downtime & Impact\n"
+    "(Downtime and cost analysis)\n\n"
+    "### Recommendations\n"
+    "(Suggested next steps)"
 )
 
 

@@ -1,84 +1,89 @@
 import { X, Download } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import type { WorkOrder } from "@/types";
 import Button from "@/components/ui/Button";
 import Tag from "@/components/ui/Tag";
 
+function handleExportPdf(order: WorkOrder) {
+  if (order.pdfUrl) {
+    const url = order.pdfUrl.startsWith("http")
+      ? order.pdfUrl
+      : `http://localhost:8000${order.pdfUrl}`;
+    window.open(url, "_blank");
+  } else {
+    window.print();
+  }
+}
+
 export default function WorkOrderModal({ order, onClose }: { order: WorkOrder; onClose: () => void }) {
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(12,12,14,0.7)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg border border-line bg-surface shadow-lift animate-slide-up"
+        onClick={(e) => e.stopPropagation()}
       >
-        <motion.div
-          className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface shadow-lift"
-          initial={{ opacity: 0, y: 12, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 8, scale: 0.98 }}
-          transition={{ duration: 0.18 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between border-b border-line bg-surface2 px-5 py-3.5">
-            <div>
-              <span className="text-[12.5px] text-soft">Work order draft</span>
-              <div className="mt-0.5 font-mono text-[13px] text-ink">{order.id}</div>
-            </div>
-            <button onClick={onClose} className="rounded p-1 text-soft hover:bg-surface hover:text-ink">
-              <X size={18} />
-            </button>
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-line px-5 py-3">
+          <div>
+            <div className="text-caption text-faint">WORK ORDER</div>
+            <div className="mt-0.5 font-mono text-[12px] text-ink">{order.id}</div>
+          </div>
+          <button onClick={onClose} className="rounded-[4px] p-1.5 text-faint transition-colors duration-150 hover:bg-ink/[0.06] hover:text-ink">
+            <X size={14} strokeWidth={2.5} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="space-y-4 px-5 py-5">
+          <div>
+            <div className="text-caption text-faint mb-1">ASSET</div>
+            <div className="text-[13px] font-medium text-ink">{order.asset}</div>
           </div>
 
-          <div className="space-y-5 p-5">
-            <div>
-              <div className="mb-1.5 text-[12px] text-soft">Asset</div>
-              <div className="text-[13.5px] font-medium text-ink">{order.asset}</div>
-            </div>
+          <div>
+            <div className="text-caption text-faint mb-1">TITLE</div>
+            <div className="text-[15px] font-semibold tracking-tight text-ink">{order.title}</div>
+          </div>
 
-            <div>
-              <div className="mb-1.5 text-[12px] text-soft">Title</div>
-              <div className="font-display text-[16px] leading-snug text-ink">{order.title}</div>
-            </div>
+          <div>
+            <div className="text-caption text-faint mb-1">ROOT CAUSE</div>
+            <div className="text-body text-soft">{order.rootCause}</div>
+          </div>
 
-            <div>
-              <div className="mb-1.5 text-[12px] text-soft">Root cause</div>
-              <div className="text-[13px] leading-relaxed text-soft">{order.rootCause}</div>
-            </div>
+          <div>
+            <div className="text-caption text-faint mb-1">RECOMMENDED ACTION</div>
+            <div className="text-body text-soft">{order.recommendedAction}</div>
+          </div>
 
-            <div>
-              <div className="mb-1.5 text-[12px] text-soft">Recommended action</div>
-              <div className="text-[13px] leading-relaxed text-soft">{order.recommendedAction}</div>
-            </div>
-
-            <div className="rounded-lg border border-amber/20 bg-amber/[0.06] px-4 py-3">
-              <div className="font-display text-[24px] font-semibold leading-none text-ink">
-                {order.downtimeAvoidedHrs} <span className="font-sans text-[13px] font-normal text-soft">hrs downtime avoided</span>
-              </div>
-            </div>
-
-            <div>
-              <div className="mb-2 text-[12px] text-soft">Linked documents</div>
-              <div className="flex flex-wrap gap-1.5">
-                {order.linkedDocs.map((d) => (
-                  <Tag key={d} mono>
-                    {d}
-                  </Tag>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-line pt-4">
-              <span className="text-[12px] text-soft">Generated {order.generatedAt}</span>
-              <Button variant="ghost">
-                <Download size={13} /> Export PDF
-              </Button>
+          {/* Metric */}
+          <div className="rounded-md border border-line bg-surface2/30 px-4 py-3">
+            <div className="text-[22px] font-semibold tracking-tight text-ink">
+              {order.downtimeAvoidedHrs} <span className="text-[11px] font-normal text-faint">hrs downtime avoided</span>
             </div>
           </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+
+          {/* Linked docs */}
+          <div>
+            <div className="text-caption text-faint mb-2">LINKED DOCUMENTS</div>
+            <div className="flex flex-wrap gap-1.5">
+              {order.linkedDocs.map((d) => (
+                <Tag key={d} mono>{d}</Tag>
+              ))}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between border-t border-line pt-4">
+            <span className="text-[11px] text-faint">{order.generatedAt}</span>
+            <Button variant="ghost" onClick={() => handleExportPdf(order)}>
+              <Download size={11} strokeWidth={2.5} /> Export PDF
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

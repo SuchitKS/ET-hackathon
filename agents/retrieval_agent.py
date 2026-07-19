@@ -17,7 +17,14 @@ SYSTEM_PROMPT = (
     "Answer the question using ONLY the provided source documents. "
     "For every claim, cite the source filename and confidence score in square brackets, "
     "e.g. [wo_2026_0142_v204_corrosion_repair.xlsx (0.95)]. "
-    "If the sources don't fully answer the question, say what's missing rather than guessing."
+    "If the sources don't fully answer the question, say what's missing rather than guessing.\n\n"
+    "CRITICAL: You MUST format your response using EXACTLY these Markdown headings:\n"
+    "### Summary\n"
+    "(Brief summary of findings)\n\n"
+    "### Evidence\n"
+    "(Detailed evidence from the documents)\n\n"
+    "### Confidence & Gaps\n"
+    "(How confident are you in this answer? What is missing?)"
 )
 
 

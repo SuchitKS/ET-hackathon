@@ -1,4 +1,4 @@
-import { FileOutput, Loader2, CheckCircle2 } from "lucide-react";
+import { FileOutput, Loader2, Check } from "lucide-react";
 import { useState } from "react";
 import type { Finding } from "@/types";
 import Button from "@/components/ui/Button";
@@ -20,38 +20,21 @@ export default function FindingCard({ finding }: { finding: Finding }) {
   }
 
   return (
-    <div className="mt-4 overflow-hidden rounded-xl border border-amber/20 bg-amber/[0.05]">
-      <div className="border-b border-amber/15 px-4 py-2.5">
-        <span className="text-[12.5px] font-medium text-amber">Finding</span>
-      </div>
-      <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-5">
-          <div>
-            <div className="font-display text-[32px] font-semibold leading-none text-ink">{finding.metricValue}</div>
-            <div className="mt-1.5 text-[11.5px] text-soft">{finding.metricLabel}</div>
-          </div>
-          <div className="max-w-sm text-[13px] leading-snug text-ink/85">
-            <div className="font-medium">{finding.headline}</div>
-            <div className="mt-1 text-soft">{finding.detail}</div>
-          </div>
+    <div className="rounded-md border border-line bg-surface2/30">
+      <div className="flex items-center gap-5 p-4">
+        <div>
+          <div className="font-sans text-[24px] font-semibold tracking-tight text-ink">{finding.metricValue}</div>
+          <div className="text-caption text-faint mt-0.5">{finding.metricLabel.toUpperCase()}</div>
         </div>
-
-        <Button onClick={handleGenerate} disabled={status !== "idle"} className="shrink-0">
-          {status === "idle" && (
-            <>
-              <FileOutput size={14} /> Generate work order
-            </>
-          )}
-          {status === "loading" && (
-            <>
-              <Loader2 size={14} className="animate-spin" /> Generating
-            </>
-          )}
-          {status === "done" && (
-            <>
-              <CheckCircle2 size={14} /> View work order
-            </>
-          )}
+        <div className="h-8 w-[1px] bg-line" />
+        <div className="flex-1 min-w-0">
+          <div className="text-[12.5px] font-medium text-ink">{finding.headline}</div>
+          <div className="mt-0.5 text-[11.5px] text-faint">{finding.detail}</div>
+        </div>
+        <Button onClick={handleGenerate} disabled={status !== "idle"}>
+          {status === "idle" && <><FileOutput size={11} strokeWidth={2.5} /> Generate WO</>}
+          {status === "loading" && <><Loader2 size={11} className="animate-spin" strokeWidth={2.5} /> Working</>}
+          {status === "done" && <><Check size={11} strokeWidth={2.5} /> View WO</>}
         </Button>
       </div>
 
@@ -59,9 +42,9 @@ export default function FindingCard({ finding }: { finding: Finding }) {
       {status === "done" && !showModal && (
         <button
           onClick={() => setShowModal(true)}
-          className="block w-full border-t border-amber/15 px-4 py-2 text-left text-[12px] font-medium text-amber hover:bg-amber/5"
+          className="block w-full border-t border-line px-4 py-2 text-left text-caption text-faint transition-colors duration-150 hover:bg-surface3/50 hover:text-ink"
         >
-          Reopen {order?.id}
+          REOPEN {order?.id}
         </button>
       )}
     </div>

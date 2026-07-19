@@ -13,22 +13,19 @@ export default function UploadDropzone({ onFiles }: { onFiles: (files: File[]) =
 
   return (
     <div
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragOver(true);
-      }}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-2.5 rounded-xl border border-dashed px-6 py-10 text-center transition-colors ${
-        dragOver ? "border-amber bg-amber/[0.05]" : "border-line hover:border-faint"
+      className={`group flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-6 py-10 text-center transition-colors duration-150 ${
+        dragOver ? "border-lineH bg-surface2" : "border-line bg-surface hover:border-lineH hover:bg-surface2/50"
       }`}
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface2">
-        <UploadCloud size={18} className="text-soft" />
-      </span>
-      <div className="text-[13.5px] font-medium text-ink">Drag files here, or click to browse</div>
-      <div className="text-[12px] text-faint">PDFs, scans, spreadsheets, P&amp;ID drawings</div>
+      <UploadCloud size={18} className="text-faint" strokeWidth={1.8} />
+      <div>
+        <div className="text-[12.5px] font-medium text-ink/80">Drop files or click to browse</div>
+        <div className="mt-1 text-[11px] text-faint">PDFs, scans, spreadsheets, P&amp;ID drawings</div>
+      </div>
       <input
         ref={inputRef}
         type="file"
