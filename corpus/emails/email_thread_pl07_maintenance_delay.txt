@@ -1,0 +1,77 @@
+From: S. Verma <s.verma@suryanagar-refinery.example>
+To: M. Iyer <m.iyer@suryanagar-refinery.example>
+Cc: R. Sharma <r.sharma@suryanagar-refinery.example>
+Date: Thu, 19 Mar 2026 09:14
+Subject: PL-07 maintenance window - need a date
+
+Hi sir,
+
+Following up on the PL-07 support point recoating we discussed after the Feb
+thickness survey (report INS-2026-0024). Coating wear was noted at PR-3,
+nothing urgent but we should not let it sit too long near the monsoon.
+
+Unit 2 shutdown window in April is already full with the V-204 repair work
+(WO-2026-0142) and the C-110 valve job. Can we slot PL-07 recoating into the
+May turnaround instead, or should this go on a standalone permit before that?
+
+Let me know so I can block technician time.
+
+Thanks,
+S. Verma
+
+-----Original Message-----
+
+From: M. Iyer <m.iyer@suryanagar-refinery.example>
+To: S. Verma <s.verma@suryanagar-refinery.example>
+Cc: R. Sharma <r.sharma@suryanagar-refinery.example>
+Date: Thu, 19 Mar 2026 14:52
+Subject: RE: PL-07 maintenance window - need a date
+
+Verma,
+
+Agreed, no need to force it into April - the crew is stretched thin with
+V-204 and the C-110 replacement already. Let's fold PL-07 recoating into the
+May turnaround alongside the T-402 tray follow-up (WO-2026-0201), same
+window, same scaffold mobilisation, saves us a second setup.
+
+I haven't raised a formal work order for the PL-07 coating touch-up yet -
+will do that closer to May so it doesn't get buried under the other WOs in
+the system. For now this thread is the only record of the decision, please
+don't let it get lost - can you also mention it in the next shift handover
+notes so it's not just sitting in email.
+
+- M. Iyer
+
+-----Original Message-----
+
+From: R. Sharma <r.sharma@suryanagar-refinery.example>
+To: M. Iyer <m.iyer@suryanagar-refinery.example>; S. Verma <s.verma@suryanagar-refinery.example>
+Date: Fri, 20 Mar 2026 08:03
+Subject: RE: PL-07 maintenance window - need a date
+
+Noted, will flag in handover notes this evening and again closer to the May
+window. Just a reminder that the formal work order should reference the Feb
+survey (INS-2026-0024) as the trigger, otherwise whoever picks this up in
+May won't have the context for why it was scheduled.
+
+Also - can we make sure this doesn't fall through the cracks the way the
+V-204 documentation gap did (per the June OISD review). Better to raise the
+WO early even if execution is in May.
+
+R. Sharma
+
+-----Original Message-----
+
+From: S. Verma <s.verma@suryanagar-refinery.example>
+To: R. Sharma <r.sharma@suryanagar-refinery.example>; M. Iyer <m.iyer@suryanagar-refinery.example>
+Date: Fri, 20 Mar 2026 09:40
+Subject: RE: PL-07 maintenance window - need a date
+
+Good point. I'll draft a short work order referencing INS-2026-0024 and send
+for approval next week rather than waiting until May. Will loop back once
+it's raised.
+
+S. Verma
+
+[End of thread - no further replies logged. Formal work order for PL-07
+coating touch-up not found in the maintenance system as of this export.]

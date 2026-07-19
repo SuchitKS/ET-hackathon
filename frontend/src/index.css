@@ -1,0 +1,96 @@
+@import "@fontsource/fraunces/400.css";
+@import "@fontsource/fraunces/500.css";
+@import "@fontsource/fraunces/600.css";
+@import "@fontsource/fraunces/600-italic.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-sans/700.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    background-image: radial-gradient(ellipse 1000px 560px at 12% -8%, rgba(181, 101, 29, 0.06), transparent);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(181, 101, 29, 0.18);
+  }
+
+  :focus-visible {
+    outline: 2px solid theme("colors.amber");
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #DCD2B8;
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #CBBE9C;
+  }
+}
+
+@layer utilities {
+  .label-sm {
+    @apply font-sans text-[12px] font-medium text-soft;
+  }
+
+  .data-tag {
+    @apply font-mono text-[11.5px] text-soft;
+  }
+
+  .grid-surface {
+    background-color: theme("colors.paper");
+    background-image: theme("backgroundImage.grid");
+    background-size: theme("backgroundSize.grid");
+  }
+
+  .card {
+    @apply bg-surface border border-line rounded-xl shadow-soft;
+  }
+
+  /* Markdown answer bodies from the LLM render through here */
+  .prose-strata {
+    @apply prose prose-sm max-w-none;
+    --tw-prose-body: theme("colors.ink" / 88%);
+    --tw-prose-headings: theme("colors.ink");
+    --tw-prose-bold: theme("colors.ink");
+    --tw-prose-links: theme("colors.amber");
+    --tw-prose-bullets: theme("colors.faint");
+    --tw-prose-hr: theme("colors.line");
+    --tw-prose-code: theme("colors.ink");
+    --tw-prose-quotes: theme("colors.soft");
+    --tw-prose-quote-borders: theme("colors.line");
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

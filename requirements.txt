@@ -1,0 +1,16 @@
+python-docx
+openpyxl
+python-dotenv
+qdrant-client
+sentence-transformers
+networkx
+pytesseract
+Pillow
+fastapi
+python-multipart
+uvicorn
+pydantic
+reportlab
+neo4j
+langgraph
+requests
