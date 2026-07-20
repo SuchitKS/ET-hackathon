@@ -43,6 +43,8 @@ from agents.supervisor import route_query
 from agents.workorder_generator import (
     generate_work_order, render_work_order_json, render_work_order_pdf, GENERATED_DIR,
 )
+from api.chat_store import append_message, get_messages, get_recent_context, get_last_tracked_asset
+from agents.llm_client import call_llm
 
 app = FastAPI(title="Suryanagar Refinery Knowledge Intelligence API")
 
@@ -94,6 +96,7 @@ STATE = {
 
 class QueryRequest(BaseModel):
     query: str
+    session_id: Optional[str] = None
 
 
 class WorkOrderRequest(BaseModel):
@@ -316,13 +319,62 @@ def chat(req: QueryRequest):
     return chat_response
 
 
+def rewrite_query(current_query: str, chat_history: str) -> str:
+    """Use the LLM to rewrite a follow-up query into a standalone query based on context."""
+    if not chat_history.strip():
+        return current_query
+        
+    system = "You are a query rewriting assistant for a refinery maintenance database."
+    prompt = f"""Given the following conversation history and a follow-up query, rewrite the query to be a standalone query that includes all necessary context (like equipment tags or specific problems) from the history. 
+If the current query is completely unrelated to the history and starts a new topic, just return the current query exactly as is without adding anything.
+Output ONLY the rewritten query, nothing else. Do not add quotes.
+
+Chat history:
+{chat_history}
+
+Current query: {current_query}
+Rewritten query:"""
+    try:
+        rewritten = call_llm(system, prompt, timeout=10, temperature=0.0).strip()
+        # Fallback if the LLM output something weird or empty
+        return rewritten if rewritten else current_query
+    except Exception as e:
+        print(f"Query rewrite failed: {e}")
+        return current_query
+
+
 @app.post("/api/chat/stream")
 def chat_stream(req: QueryRequest):
     if STATE["kg"] is None or STATE["vs"] is None:
         return {"error": "Corpus not ingested yet. Call POST /ingest first."}
 
+    session_id = req.session_id
+
+    # Save user message to MongoDB
+    if session_id:
+        user_msg = {
+            "id": str(uuid.uuid4()),
+            "role": "user",
+            "text": req.query,
+            "timestamp": datetime.now().isoformat() + "Z",
+        }
+        append_message(session_id, user_msg)
+
+    # Fetch recent conversation context for multi-turn
+    conversation_context = ""
+    if session_id:
+        conversation_context = get_recent_context(session_id, n=5)
+
+    # Augment the query intelligently using the LLM so it resolves pronouns
+    # or drops context if it's a completely new topic.
+    augmented_query = rewrite_query(req.query, conversation_context)
+    
+    # Re-extract entities from the *augmented* query so the frontend knows what asset we're on
+    entities = extract_entities(augmented_query)
+    tracked_asset = entities["equipment"][0] if entities["equipment"] else None
+
     start_time = time.time()
-    raw_result = route_query(req.query, STATE["kg"], STATE["vs"], stream=True)
+    raw_result = route_query(augmented_query, STATE["kg"], STATE["vs"], stream=True, conversation_context=conversation_context)
     latency_ms = int((time.time() - start_time) * 1000)
     
     intent = raw_result.get("intent", "retrieval")
@@ -337,9 +389,6 @@ def chat_stream(req: QueryRequest):
         trace_summary += " \u2014 scanned equipment against compliance checklists."
     else:
         trace_summary += " \u2014 queried hybrid vector/graph index."
-
-    entities = extract_entities(req.query)
-    tracked_asset = entities["equipment"][0] if entities["equipment"] else None
 
     citations = []
     seen_docs = set()
@@ -393,6 +442,9 @@ def chat_stream(req: QueryRequest):
 
         yield f"data: {json.dumps({'meta': meta})}\n\n"
 
+        # Accumulate the full answer text so we can save it to MongoDB
+        full_text = ""
+
         # Once we're here, the response has already started (status 200 +
         # headers are committed) — an exception raised past this point can't
         # turn into a clean 500 anymore, it would just cut the connection and
@@ -401,22 +453,41 @@ def chat_stream(req: QueryRequest):
         try:
             if "answer_stream" in raw_result:
                 for chunk in raw_result["answer_stream"]:
+                    full_text += chunk
                     yield f"data: {json.dumps({'text': chunk})}\n\n"
             else:
                 # Fallback if agent doesn't stream (e.g. rca, compliance)
-                yield f"data: {json.dumps({'text': raw_result.get('answer', '')})}\n\n"
+                fallback_text = raw_result.get('answer', '')
+                full_text += fallback_text
+                yield f"data: {json.dumps({'text': fallback_text})}\n\n"
         except Exception as e:
             traceback.print_exc()
-            yield f"data: {json.dumps({'text': f'\\n\\n_The response was interrupted: {type(e).__name__}: {e}_'})}\n\n"
+            error_msg = f'\n\n_The response was interrupted: {type(e).__name__}: {e}_'
+            full_text += error_msg
+            yield f"data: {json.dumps({'text': error_msg})}\n\n"
             
         if raw_result.get("pdf_path"):
             filename = os.path.basename(raw_result["pdf_path"])
             text_str = f"\\n\\n[Download Work Order PDF](/generated/{filename})"
+            full_text += text_str
             yield f"data: {json.dumps({'text': text_str})}\n\n"
+
+        # Save assistant message to MongoDB
+        if session_id:
+            assistant_msg = dict(meta)  # copy the meta dict
+            assistant_msg["text"] = full_text
+            append_message(session_id, assistant_msg)
 
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(generate_chunks(), media_type="text/event-stream")
+
+
+@app.get("/api/chat/history")
+def chat_history(session_id: str):
+    """Return all messages for a given session from MongoDB."""
+    messages = get_messages(session_id)
+    return messages
 
 
 @app.post("/query")

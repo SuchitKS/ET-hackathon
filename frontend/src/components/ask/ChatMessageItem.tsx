@@ -104,37 +104,6 @@ export default function ChatMessageItem({
         </div>
       )}
 
-      {/* Inline Follow-up Input */}
-      {onFollowUp && (
-        <div className="border-t border-line/50 bg-surface/40 p-6 backdrop-blur-sm mt-auto shrink-0">
-          <div className="flex items-center gap-3 rounded-lg bg-background/60 border border-line/60 px-4 py-2.5 focus-within:border-lineH focus-within:shadow-[0_0_12px_rgba(255,255,255,0.03)] transition-all">
-            <input
-              value={followUpInput}
-              onChange={(e) => setFollowUpInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && followUpInput.trim()) {
-                   onFollowUp(message.id, followUpInput.trim());
-                   setFollowUpInput("");
-                }
-              }}
-              placeholder="Ask a follow-up question…"
-              className="flex-1 bg-transparent py-1 text-[13px] text-ink placeholder:text-faint/60 focus:outline-none"
-            />
-            <button
-              onClick={() => {
-                if (followUpInput.trim()) {
-                  onFollowUp(message.id, followUpInput.trim());
-                  setFollowUpInput("");
-                }
-              }}
-              disabled={!followUpInput.trim()}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-ink/10 text-ink transition-colors hover:bg-ink/20 disabled:opacity-20"
-            >
-              <ArrowRight size={14} strokeWidth={2.5} />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

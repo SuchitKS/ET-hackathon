@@ -41,7 +41,7 @@ def format_context(results: list, max_chars_per_doc: int = 800) -> str:
     return "\n\n".join(blocks)
 
 
-def answer_query(query: str, kg, vs, top_k: int = 8, stream: bool = False):
+def answer_query(query: str, kg, vs, top_k: int = 8, stream: bool = False, conversation_context: str = ""):
     results, query_entities = hybrid_search(query, kg, vs, top_k=top_k)
 
     if not results:
@@ -54,7 +54,13 @@ def answer_query(query: str, kg, vs, top_k: int = 8, stream: bool = False):
         }
 
     context = format_context(results)
-    user_prompt = f"SOURCES:\n{context}\n\nQUESTION: {query}\n\nANSWER (with citations and confidence scores):"
+
+    # Build user prompt with optional conversation history
+    context_block = ""
+    if conversation_context:
+        context_block = f"CONVERSATION HISTORY:\n{conversation_context}\n\n"
+
+    user_prompt = f"{context_block}SOURCES:\n{context}\n\nQUESTION: {query}\n\nANSWER (with citations and confidence scores):"
 
     if stream:
         def _safe_stream():

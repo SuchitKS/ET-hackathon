@@ -14,6 +14,22 @@ const MOCK_LATENCY = 500;
 
 const BASE_URL = "http://localhost:8000";
 
+// Persist session ID in sessionStorage so it survives page refreshes
+function initSessionId(): string {
+  let id = sessionStorage.getItem("strata_session_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem("strata_session_id", id);
+  }
+  return id;
+}
+
+const SESSION_ID = initSessionId();
+
+export function getSessionId(): string {
+  return SESSION_ID;
+}
+
 export async function fetchDocuments(): Promise<DocumentRecord[]> {
   const res = await fetch(`${BASE_URL}/api/documents`);
   if (!res.ok) throw new Error("Failed to fetch documents");
@@ -38,8 +54,13 @@ export async function fetchGraph(): Promise<GraphData> {
 }
 
 export async function fetchChatHistory(): Promise<ChatMessage[]> {
-  // Hackathon demo: always start with a clean slate unless using real DB
-  return [];
+  try {
+    const res = await fetch(`${BASE_URL}/api/chat/history?session_id=${SESSION_ID}`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
 }
 
 export async function sendQuestion(question: string): Promise<ChatMessage> {
@@ -58,7 +79,7 @@ export async function* sendQuestionStream(question: string) {
     res = await fetch(`${BASE_URL}/api/chat/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: question }),
+      body: JSON.stringify({ query: question, session_id: SESSION_ID }),
     });
   } catch {
     // The fetch itself failed — the backend is unreachable (not running,

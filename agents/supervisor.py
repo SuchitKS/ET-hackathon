@@ -54,6 +54,7 @@ class SupervisorState(TypedDict, total=False):
     intent: str
     result: dict
     stream: bool         # Whether to stream the LLM response
+    conversation_context: str  # Recent chat history for multi-turn context
 
 
 # ---------------------------------------------------------------------------
@@ -80,7 +81,8 @@ def classify_node(state: SupervisorState) -> dict:
 # ---------------------------------------------------------------------------
 def retrieval_node(state: SupervisorState) -> dict:
     stream = state.get("stream", False)
-    result = answer_query(state["query"], state["kg"], state["vs"], stream=stream)
+    context = state.get("conversation_context", "")
+    result = answer_query(state["query"], state["kg"], state["vs"], stream=stream, conversation_context=context)
     result["intent"] = "retrieval"
     return {"result": result}
 
@@ -94,7 +96,7 @@ def check_confidence_node(state: SupervisorState) -> dict:
     sources = result.get("sources", [])
     
     # If we have sources and all of them have low confidence
-    if sources and all(s.get("score", 0) < 0.15 for s in sources):
+    if sources and all(s.get("confidence", 0) < 0.15 for s in sources):
         return {"intent": "rca"}
     
     return {}
@@ -275,7 +277,7 @@ _compiled_graph = _build_graph().compile()
 # ---------------------------------------------------------------------------
 # Public API — drop-in replacement for the old route_query()
 # ---------------------------------------------------------------------------
-def route_query(query: str, kg, vs, stream: bool = False) -> dict:
+def route_query(query: str, kg, vs, stream: bool = False, conversation_context: str = "") -> dict:
     """Run the LangGraph supervisor workflow.
 
     Args:
@@ -283,6 +285,7 @@ def route_query(query: str, kg, vs, stream: bool = False) -> dict:
         kg:    KnowledgeGraph instance.
         vs:    VectorStore instance.
         stream: Whether to stream the response (currently supported by retrieval agent).
+        conversation_context: Recent chat history for multi-turn context.
 
     Returns:
         Result dict with 'intent', 'answer', 'sources', etc.
@@ -294,6 +297,7 @@ def route_query(query: str, kg, vs, stream: bool = False) -> dict:
         "intent": "",
         "result": {},
         "stream": stream,
+        "conversation_context": conversation_context,
     }
 
     final_state = _compiled_graph.invoke(initial_state)
