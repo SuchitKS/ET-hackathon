@@ -160,6 +160,76 @@ class KnowledgeGraph:
             events.sort(key=lambda e: e.get("date") or "9999-99-99")
             return events
 
+    # ------------------------------------------------------------------
+    # P&ID connection topology
+    # ------------------------------------------------------------------
+    def link_equipment_connection(self, from_tag: str, to_tag: str,
+                                  connection_type: str, label: str | None,
+                                  source_doc_id: str):
+        """MERGE a directed CONNECTS_TO relationship between two equipment nodes.
+
+        Creates both Equipment nodes if they don't already exist (via
+        add_equipment), then MERGEs the edge so re-ingesting the same P&ID
+        is idempotent.
+        """
+        self.add_equipment(from_tag)
+        self.add_equipment(to_tag)
+
+        query = """
+        MATCH (a:Equipment {id: $from_tag})
+        MATCH (b:Equipment {id: $to_tag})
+        MERGE (a)-[r:CONNECTS_TO {source_doc: $source_doc}]->(b)
+        SET r.connection_type = $connection_type,
+            r.label = $label
+        """
+        with self.driver.session() as session:
+            session.run(query, from_tag=from_tag, to_tag=to_tag,
+                        connection_type=connection_type, label=label,
+                        source_doc=source_doc_id)
+
+    def get_downstream(self, tag: str, hops: int = 2) -> list:
+        """Return equipment reachable downstream of *tag* via CONNECTS_TO edges.
+
+        Results are ordered by hop distance so callers can present them as
+        a flow path.  Each entry is a dict with 'tag' and 'hops'.
+        """
+        query = f"""
+        MATCH path = (e:Equipment {{id: $tag}})-[:CONNECTS_TO*1..{hops}]->(downstream)
+        RETURN downstream.id AS tag, length(path) AS distance
+        ORDER BY distance
+        """
+        with self.driver.session() as session:
+            result = session.run(query, tag=tag)
+            seen = set()
+            items = []
+            for record in result:
+                t = record["tag"]
+                if t not in seen:
+                    seen.add(t)
+                    items.append({"tag": t, "hops": record["distance"]})
+            return items
+
+    def get_upstream(self, tag: str, hops: int = 2) -> list:
+        """Return equipment that feeds into *tag* via CONNECTS_TO edges.
+
+        Same as get_downstream but follows edges in reverse.
+        """
+        query = f"""
+        MATCH path = (upstream)-[:CONNECTS_TO*1..{hops}]->(e:Equipment {{id: $tag}})
+        RETURN upstream.id AS tag, length(path) AS distance
+        ORDER BY distance
+        """
+        with self.driver.session() as session:
+            result = session.run(query, tag=tag)
+            seen = set()
+            items = []
+            for record in result:
+                t = record["tag"]
+                if t not in seen:
+                    seen.add(t)
+                    items.append({"tag": t, "hops": record["distance"]})
+            return items
+
     def summary(self) -> dict:
         nodes_query = "MATCH (n) RETURN n.kind AS kind, count(n) AS c"
         edges_query = "MATCH ()-[r]->() RETURN count(r) AS c"

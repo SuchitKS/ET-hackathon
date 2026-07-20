@@ -9,6 +9,7 @@ Credentials loaded from .env file via python-dotenv.
 """
 import os
 import json
+import base64
 import urllib.request
 
 # Load .env file from project root
@@ -18,6 +19,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 XAI_API_KEY = os.environ.get("XAI_API_KEY", "")
 XAI_BASE_URL = os.environ.get("XAI_BASE_URL", "https://api.x.ai/v1")
 XAI_MODEL = os.environ.get("XAI_MODEL", "grok-3-mini-fast")
+XAI_VISION_MODEL = os.environ.get("XAI_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 
 
 def call_llm(system_prompt: str, user_prompt: str, timeout: int = 120,
@@ -124,17 +126,12 @@ def call_llm_stream(system_prompt: str, user_prompt: str, timeout: int = 120,
         raise RuntimeError(f"Streaming failed: {e}")
 
 
-def call_llm_json(system_prompt: str, user_prompt: str, timeout: int = 120,
-                  temperature: float = 0.1, max_tokens: int = 2048) -> dict:
-    """Call Grok and parse the response as JSON. Used for structured extraction.
+def _parse_json_response(raw: str) -> dict:
+    """Strip markdown code fences and parse JSON from an LLM response.
 
-    The system prompt should instruct the model to return valid JSON only.
-    Falls back to returning an empty dict if parsing fails.
+    Shared helper used by call_llm_json and call_llm_vision_json so the
+    fence-stripping logic lives in exactly one place.
     """
-    raw = call_llm(system_prompt, user_prompt, timeout=timeout,
-                   temperature=temperature, max_tokens=max_tokens)
-
-    # Strip markdown code fences if the model wraps its JSON output
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         # Remove opening fence (```json or ```)
@@ -155,3 +152,88 @@ def call_llm_json(system_prompt: str, user_prompt: str, timeout: int = 120,
             except json.JSONDecodeError:
                 pass
         return {}
+
+
+def call_llm_json(system_prompt: str, user_prompt: str, timeout: int = 120,
+                  temperature: float = 0.1, max_tokens: int = 2048) -> dict:
+    """Call Grok and parse the response as JSON. Used for structured extraction.
+
+    The system prompt should instruct the model to return valid JSON only.
+    Falls back to returning an empty dict if parsing fails.
+    """
+    raw = call_llm(system_prompt, user_prompt, timeout=timeout,
+                   temperature=temperature, max_tokens=max_tokens)
+    return _parse_json_response(raw)
+
+
+def call_llm_vision_json(system_prompt: str, user_prompt: str, image_path: str,
+                         timeout: int = 120, temperature: float = 0.1,
+                         max_tokens: int = 2048) -> dict:
+    """Send an image + text prompt to a vision-capable model and parse JSON.
+
+    Reads the image file at *image_path*, base64-encodes it, and sends a
+    chat completion request with both text and image content parts.  The
+    response is parsed using the same fence-stripping logic as call_llm_json.
+
+    Raises RuntimeError on failure so callers can fall back gracefully.
+    """
+    if not XAI_API_KEY:
+        raise RuntimeError(
+            "XAI_API_KEY not set. Add it to your .env file: "
+            "XAI_API_KEY=xai-..."
+        )
+
+    # Determine MIME type from extension
+    ext = os.path.splitext(image_path)[1].lower()
+    mime_map = {".png": "image/png", ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg", ".gif": "image/gif",
+                ".webp": "image/webp"}
+    mime_type = mime_map.get(ext, "image/png")
+
+    with open(image_path, "rb") as f:
+        b64_data = base64.b64encode(f.read()).decode("utf-8")
+
+    payload = {
+        "model": XAI_VISION_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{mime_type};base64,{b64_data}"
+                        },
+                    },
+                ],
+            },
+        ],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": False,
+    }
+
+    req = urllib.request.Request(
+        f"{XAI_BASE_URL}/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {XAI_API_KEY}",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/120.0.0.0 Safari/537.36",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            raw = body["choices"][0]["message"]["content"].strip()
+            return _parse_json_response(raw)
+    except Exception as e:
+        raise RuntimeError(
+            f"Vision API call failed ({XAI_BASE_URL}, model "
+            f"'{XAI_VISION_MODEL}'): {e}"
+        )

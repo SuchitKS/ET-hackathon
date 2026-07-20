@@ -43,6 +43,12 @@ const AGENT_STAGES: Record<AgentName, PipelineStage[]> = {
     { id: "validate", label: "Validation", icon: ShieldQuestion, liveTexts: ["Validating work order…"] },
     { id: "generate", label: "Response Generation", icon: Database, liveTexts: ["Generating explanation…", "Formatting response…"] },
   ],
+  architecture: [
+    ...COMMON_STAGES,
+    { id: "architecture", label: "Topology Analysis", icon: Network, liveTexts: ["Analyzing P&ID structure…", "Tracing flow path…", "Checking upstream/downstream…"] },
+    { id: "validate", label: "Validation", icon: ShieldQuestion, liveTexts: ["Validating connections…"] },
+    { id: "generate", label: "Response Generation", icon: Database, liveTexts: ["Generating explanation…", "Formatting response…"] },
+  ],
 };
 
 export default function AgentPipeline({

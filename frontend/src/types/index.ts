@@ -37,7 +37,7 @@ export interface GraphData {
   edges: GraphEdge[];
 }
 
-export type AgentName = "retrieval" | "rca" | "compliance" | "workorder";
+export type AgentName = "retrieval" | "rca" | "compliance" | "workorder" | "architecture";
 
 export interface Citation {
   id: string; // e.g. "WO-445"

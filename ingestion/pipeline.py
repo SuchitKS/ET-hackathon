@@ -11,6 +11,7 @@ from ingestion.extractors.docx_extractor import extract_docx
 from ingestion.extractors.xlsx_extractor import extract_xlsx
 from ingestion.extractors.txt_extractor import extract_txt
 from ingestion.extractors.image_extractor import extract_image
+from ingestion.extractors.pid_vision_extractor import extract_pid_structure
 from ingestion.entity_extraction import extract_entities, extract_entities_enhanced
 from graph.knowledge_graph import KnowledgeGraph
 from retrieval.vector_store import VectorStore
@@ -60,7 +61,7 @@ def ingest_corpus(corpus_dir: str, use_llm: bool = True):
     report = []
 
     # Pass 1: extract text + entities for every file, register doc + entity nodes
-    file_records = []  # (doc_id/filename, doc_type, text, entities)
+    file_records = []  # (doc_id/filename, doc_type, text, entities, pid_data)
     official_id_to_filename = {}  # e.g. "WO-2026-0142" -> "wo_2026_0142_..."
 
     for folder, doc_type in FOLDER_TO_DOC_TYPE.items():
@@ -93,6 +94,17 @@ def ingest_corpus(corpus_dir: str, use_llm: bool = True):
             else:
                 entities = extract_entities(text)
 
+            # --- P&ID vision extraction (structural topology) ---
+            pid_data = None
+            if use_llm and doc_type == "pid_drawing" and ext in (".png", ".jpg", ".jpeg"):
+                try:
+                    pid_data = extract_pid_structure(filepath)
+                    n_conn = len(pid_data.get("connections", []))
+                    n_equip = len(pid_data.get("equipment", []))
+                    print(f"  [PID] {fname}: {n_equip} equipment, {n_conn} connections")
+                except Exception as e:
+                    print(f"  [WARN] P&ID vision failed for {fname}: {e}")
+
             doc_node_id = fname  # filename is the canonical graph node id
             official_id = entities["document_refs"][0] if entities["document_refs"] else None
 
@@ -104,13 +116,13 @@ def ingest_corpus(corpus_dir: str, use_llm: bool = True):
             if official_id:
                 official_id_to_filename[official_id] = doc_node_id
 
-            file_records.append((doc_node_id, doc_type, text, entities))
+            file_records.append((doc_node_id, doc_type, text, entities, pid_data))
             report.append({"file": fname, "doc_type": doc_type, **entities})
 
     # Pass 2: add equipment/person nodes, mention edges, cross-document reference
     # edges, failure events, and populate the vector store. Two passes because we
     # need every official_id -> filename mapping built before we can link references.
-    for doc_node_id, doc_type, text, entities in file_records:
+    for doc_node_id, doc_type, text, entities, pid_data in file_records:
         for tag in entities["equipment"]:
             kg.add_equipment(tag)
             kg.link_mentions(doc_node_id, tag, relation="mentions_equipment")
@@ -133,6 +145,20 @@ def ingest_corpus(corpus_dir: str, use_llm: bool = True):
                     date=_extract_first_date(text),
                 )
 
+        # --- P&ID connection edges ---
+        if pid_data and doc_type == "pid_drawing":
+            for conn in pid_data.get("connections", []):
+                from_tag = conn.get("from_tag", "")
+                to_tag = conn.get("to_tag", "")
+                if from_tag and to_tag:
+                    kg.link_equipment_connection(
+                        from_tag=from_tag,
+                        to_tag=to_tag,
+                        connection_type=conn.get("line_type", "process_pipe"),
+                        label=conn.get("label"),
+                        source_doc_id=doc_node_id,
+                    )
+
         for person in entities["personnel"]:
             kg.add_person(person)
             kg.link_mentions(doc_node_id, person, relation="mentions_person")
@@ -142,9 +168,14 @@ def ingest_corpus(corpus_dir: str, use_llm: bool = True):
             if target_filename and target_filename != doc_node_id:
                 kg.link_documents(doc_node_id, target_filename, relation="references")
 
+        # Append P&ID diagram summary to text so semantic search finds it
+        embed_text = text
+        if pid_data and pid_data.get("diagram_summary"):
+            embed_text = text + "\n\n[P&ID Summary] " + pid_data["diagram_summary"]
+
         vs.add_chunked(
             doc_id=doc_node_id,
-            text=text,
+            text=embed_text,
             metadata={
                 "doc_type": doc_type,
                 "equipment": entities["equipment"],
@@ -177,7 +208,17 @@ def ingest_single_file(filepath: str, doc_type: str, kg, vs, use_llm: bool = Tru
         entities = extract_entities_enhanced(text)
     else:
         entities = extract_entities(text)
-        
+
+    # --- P&ID vision extraction for single-file uploads ---
+    pid_data = None
+    if use_llm and doc_type == "pid_drawing" and ext in (".png", ".jpg", ".jpeg"):
+        try:
+            pid_data = extract_pid_structure(filepath)
+            print(f"  [PID] {fname}: {len(pid_data.get('equipment', []))} equipment, "
+                  f"{len(pid_data.get('connections', []))} connections")
+        except Exception as e:
+            print(f"  [WARN] P&ID vision failed for {fname}: {e}")
+
     doc_node_id = fname
     official_id = entities["document_refs"][0] if entities["document_refs"] else None
     
@@ -208,7 +249,21 @@ def ingest_single_file(filepath: str, doc_type: str, kg, vs, use_llm: bool = Tru
                 risk_level=entities.get("risk_level"),
                 date=_extract_first_date(text),
             )
-            
+
+    # --- P&ID connection edges (single-file) ---
+    if pid_data and doc_type == "pid_drawing":
+        for conn in pid_data.get("connections", []):
+            from_tag = conn.get("from_tag", "")
+            to_tag = conn.get("to_tag", "")
+            if from_tag and to_tag:
+                kg.link_equipment_connection(
+                    from_tag=from_tag,
+                    to_tag=to_tag,
+                    connection_type=conn.get("line_type", "process_pipe"),
+                    label=conn.get("label"),
+                    source_doc_id=doc_node_id,
+                )
+
     for person in entities["personnel"]:
         kg.add_person(person)
         kg.link_mentions(doc_node_id, person, relation="mentions_person")
@@ -217,10 +272,15 @@ def ingest_single_file(filepath: str, doc_type: str, kg, vs, use_llm: bool = Tru
         target_filename = known_official_ids.get(ref_id)
         if target_filename and target_filename != doc_node_id:
             kg.link_documents(doc_node_id, target_filename, relation="references")
-            
+
+    # Append P&ID diagram summary to text so semantic search finds it
+    embed_text = text
+    if pid_data and pid_data.get("diagram_summary"):
+        embed_text = text + "\n\n[P&ID Summary] " + pid_data["diagram_summary"]
+
     vs.add_single_document(
         doc_id=doc_node_id,
-        text=text,
+        text=embed_text,
         metadata={
             "doc_type": doc_type,
             "equipment": entities["equipment"],

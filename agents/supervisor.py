@@ -1,7 +1,7 @@
 """LangGraph Supervisor: keyword-based intent routing using a StateGraph.
 
 Uses LangGraph's StateGraph for structured, traceable agent orchestration.
-Each agent (retrieval, RCA, compliance, workorder) is a node in the graph,
+Each agent (retrieval, RCA, compliance, workorder, architecture) is a node in the graph,
 with the supervisor as the entry node that routes to the correct agent via
 conditional edges.
 
@@ -21,6 +21,7 @@ from ingestion.entity_extraction import extract_entities, KNOWN_EQUIPMENT
 from agents.retrieval_agent import answer_query
 from agents.rca_agent import run_rca
 from agents.compliance_agent import run_compliance_scan
+from agents.architecture_agent import run_architecture_query
 from agents.workorder_generator import (
     generate_work_order, render_work_order_json, render_work_order_pdf,
 )
@@ -41,6 +42,12 @@ WORKORDER_KEYWORDS = [
     "generate work order", "create work order", "draft work order",
     "raise wo", "raise a wo", "raise work order", "new work order",
     "work order for", "wo for", "create wo", "draft wo",
+]
+ARCHITECTURE_KEYWORDS = [
+    "downstream", "upstream", "connected to", "connects to",
+    "trace the flow", "what feeds", "flow from", "flow to",
+    "upstream of", "downstream of", "what is after", "what is before",
+    "piping", "p&id", "pid", "process flow",
 ]
 
 
@@ -66,6 +73,8 @@ def classify_node(state: SupervisorState) -> dict:
 
     if any(kw in lower for kw in WORKORDER_KEYWORDS):
         intent = "workorder"
+    elif any(kw in lower for kw in ARCHITECTURE_KEYWORDS):
+        intent = "architecture"
     elif any(kw in lower for kw in COMPLIANCE_KEYWORDS):
         intent = "compliance"
     elif any(kw in lower for kw in RCA_KEYWORDS):
@@ -126,6 +135,15 @@ def rca_node(state: SupervisorState) -> dict:
 def compliance_node(state: SupervisorState) -> dict:
     result = run_compliance_scan(state["kg"], state["vs"])
     result["intent"] = "compliance"
+    return {"result": result}
+
+
+# ---------------------------------------------------------------------------
+# Node: architecture agent (P&ID connectivity)
+# ---------------------------------------------------------------------------
+def architecture_node(state: SupervisorState) -> dict:
+    result = run_architecture_query(state["query"], state["kg"], state["vs"])
+    result["intent"] = "architecture"
     return {"result": result}
 
 
@@ -232,6 +250,7 @@ def _build_graph() -> StateGraph:
     graph.add_node("check_confidence", check_confidence_node)
     graph.add_node("rca", rca_node)
     graph.add_node("compliance", compliance_node)
+    graph.add_node("architecture", architecture_node)
     graph.add_node("workorder", workorder_node)
 
     # Entry point
@@ -245,6 +264,7 @@ def _build_graph() -> StateGraph:
             "retrieval": "retrieval",
             "rca": "rca",
             "compliance": "compliance",
+            "architecture": "architecture",
             "workorder": "workorder",
         },
     )
@@ -265,6 +285,7 @@ def _build_graph() -> StateGraph:
     # All other agent nodes → END
     graph.add_edge("rca", END)
     graph.add_edge("compliance", END)
+    graph.add_edge("architecture", END)
     graph.add_edge("workorder", END)
 
     return graph
