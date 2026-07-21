@@ -4,21 +4,22 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: "#0B0B0C",
-        surface: "#121214",
-        surface2: "#18181A",
-        surface3: "#1F1F22",
-        ink: "#E4E4E7",
-        soft: "#A1A1AA",
-        faint: "#63636E",
-        line: "rgba(255,255,255,0.06)",
-        lineH: "rgba(255,255,255,0.12)",
+        // Industrial Slate Theme
+        paper: "#020617",     // slate-950
+        surface: "#090E17",   // deeper than slate-900
+        surface2: "#0F172A",  // slate-900
+        surface3: "#1E293B",  // slate-800
+        ink: "#F8FAFC",       // slate-50
+        soft: "#CBD5E1",      // slate-300
+        faint: "#64748B",     // slate-500
+        line: "rgba(148, 163, 184, 0.1)",
+        lineH: "rgba(148, 163, 184, 0.2)",
 
-        // Semantic — used sparingly
-        failure: "#E5553B",
-        info: "#3B82F6",
-        success: "#22C55E",
-        warn: "#F59E0B",
+        // Vibrant Semantic Colors
+        failure: "#F43F5E",   // rose-500
+        info: "#0EA5E9",      // sky-500
+        success: "#10B981",   // emerald-500
+        warn: "#F59E0B",      // amber-500
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
@@ -34,13 +35,15 @@ export default {
       boxShadow: {
         none: "none",
         soft: "0 1px 3px rgba(0,0,0,0.24)",
-        lift: "0 8px 24px rgba(0,0,0,0.32)",
-        focus: "0 0 0 2px rgba(255,255,255,0.08)",
+        lift: "0 10px 30px -10px rgba(0,0,0,0.5)",
+        focus: "0 0 0 2px rgba(14, 165, 233, 0.25)", // Sky glow
+        glow: "0 0 20px -5px var(--tw-shadow-color)",
       },
       animation: {
         "fade-in": "fadeIn 180ms ease-out",
         "slide-up": "slideUp 180ms ease-out",
         "slide-in-right": "slideInRight 200ms ease-out",
+        "pulse-glow": "pulseGlow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
       keyframes: {
         fadeIn: {
@@ -58,6 +61,10 @@ export default {
         slideDown: {
           "0%": { transform: "translateY(-100%)" },
           "100%": { transform: "translateY(100%)" },
+        },
+        pulseGlow: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.5" },
         },
       },
     },

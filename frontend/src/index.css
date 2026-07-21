@@ -15,10 +15,10 @@
 
   body {
     @apply font-sans antialiased text-ink;
-    background-color: #0B0B0C;
+    background-color: theme('colors.paper');
     background-image: 
-      radial-gradient(circle at 15% 0%, rgba(255, 255, 255, 0.02) 0%, transparent 40%),
-      radial-gradient(circle at 85% 100%, rgba(255, 255, 255, 0.015) 0%, transparent 40%);
+      radial-gradient(circle at 20% -10%, rgba(14, 165, 233, 0.06) 0%, transparent 60%),
+      radial-gradient(circle at 80% 110%, rgba(16, 185, 129, 0.04) 0%, transparent 60%);
     background-attachment: fixed;
   }
 
@@ -40,10 +40,10 @@
 @layer components {
   /* Glass — extremely subtle for premium depth */
   .glass {
-    background: rgba(22, 22, 24, 0.55);
+    background: rgba(9, 14, 23, 0.55);
     backdrop-filter: blur(22px);
     -webkit-backdrop-filter: blur(22px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(148, 163, 184, 0.08);
   }
 
   /* Investigation card — structured response container */

@@ -39,11 +39,12 @@ import traceback
 
 from ingestion.pipeline import ingest_corpus, ingest_single_file
 from ingestion.entity_extraction import extract_entities
-from agents.supervisor import route_query
+from agents.supervisor import route_query, classify_node
 from agents.workorder_generator import (
     generate_work_order, render_work_order_json, render_work_order_pdf, GENERATED_DIR,
 )
-from api.chat_store import append_message, get_messages, get_recent_context, get_last_tracked_asset
+from api.chat_store import append_message, get_messages, get_recent_context, get_last_tracked_asset, list_conversations
+from api.alert_store import upsert_alert, get_alerts as get_all_alerts, update_alert_status
 from agents.llm_client import call_llm
 
 app = FastAPI(title="Suryanagar Refinery Knowledge Intelligence API")
@@ -97,6 +98,7 @@ STATE = {
 class QueryRequest(BaseModel):
     query: str
     session_id: Optional[str] = None
+    operator: Optional[str] = None
 
 
 class WorkOrderRequest(BaseModel):
@@ -104,6 +106,11 @@ class WorkOrderRequest(BaseModel):
     description: str
     priority: Optional[str] = "medium"
     requester: Optional[str] = "System Generated"
+
+
+class AlertStatusUpdate(BaseModel):
+    status: str
+    updated_by: Optional[str] = None
 
 
 @app.post("/ingest")
@@ -125,25 +132,50 @@ def get_graph():
 def get_dashboard():
     if STATE["kg"] is None:
         return {"error": "Corpus not ingested yet. Call POST /ingest first."}
-    return STATE["kg"].get_dashboard_metrics()
+    metrics = STATE["kg"].get_dashboard_metrics()
+    metrics["alerts"] = get_all_alerts()
+    return metrics
 
 
 @app.get("/api/alerts")
 def get_alerts():
-    return [
+    # Mock data to ensure there's something to upsert
+    mock_alerts = [
         {
-            "id": "alert-1",
             "type": "warning",
             "message": "High probability of seal failure on P-102 within 72 hours based on vibration anomalies and maintenance history.",
-            "asset": "P-102"
+            "asset": "P-102",
+            "source": "rca"
         },
         {
-            "id": "alert-2",
             "type": "info",
             "message": "Upcoming compliance audit for V-204 in 14 days. 2 inspection documents missing.",
-            "asset": "V-204"
+            "asset": "V-204",
+            "source": "compliance"
         }
     ]
+    
+    # Upsert the mock alerts so they persist if they don't exist yet
+    for a in mock_alerts:
+        upsert_alert(a)
+        
+    # Return everything from the persistent store
+    return get_all_alerts()
+
+
+# pyrefly: ignore [missing-import]
+from fastapi import HTTPException
+
+@app.patch("/api/alerts/{alert_id}")
+def update_alert(alert_id: str, req: AlertStatusUpdate):
+    valid_statuses = {"active", "monitoring", "false_positive", "cleared", "under_maintenance"}
+    if req.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+        
+    updated = update_alert_status(alert_id, req.status, req.updated_by)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"status": "ok"}
 
 
 @app.get("/api/documents")
@@ -311,7 +343,8 @@ def chat(req: QueryRequest):
     # If the work order generator created a PDF, attach the URL
     if raw_result.get("pdf_path"):
         filename = os.path.basename(raw_result["pdf_path"])
-        chat_response["text"] += f"\n\n[Download Work Order PDF](/generated/{filename})"
+        pdf_url = f"http://localhost:8000/generated/{filename}"
+        chat_response["text"] += f"\n\n[📄 Download Work Order PDF]({pdf_url})"
 
     if finding:
         chat_response["finding"] = finding
@@ -358,16 +391,25 @@ def chat_stream(req: QueryRequest):
             "text": req.query,
             "timestamp": datetime.now().isoformat() + "Z",
         }
-        append_message(session_id, user_msg)
+        append_message(session_id, user_msg, req.operator)
 
     # Fetch recent conversation context for multi-turn
     conversation_context = ""
     if session_id:
         conversation_context = get_recent_context(session_id, n=5)
 
-    # Augment the query intelligently using the LLM so it resolves pronouns
-    # or drops context if it's a completely new topic.
-    augmented_query = rewrite_query(req.query, conversation_context)
+    # Classify intent from the ORIGINAL query first — this preserves
+    # command keywords like "generate work order" that the LLM rewriter
+    # would otherwise strip out, causing misrouting.
+    pre_classification = classify_node({"query": req.query})
+    original_intent = pre_classification["intent"]
+
+    # For command-like intents (workorder), skip rewriting — use original query
+    # to preserve the intent keywords the supervisor needs for routing.
+    if original_intent == "workorder":
+        augmented_query = req.query
+    else:
+        augmented_query = rewrite_query(req.query, conversation_context)
     
     # Re-extract entities from the *augmented* query so the frontend knows what asset we're on
     entities = extract_entities(augmented_query)
@@ -403,6 +445,16 @@ def chat_stream(req: QueryRequest):
     if isinstance(sources_list, list):
         for s in sources_list:
             doc_id = s.get("doc_id") if isinstance(s, dict) else s
+            if doc_id and doc_id not in seen_docs:
+                seen_docs.add(doc_id)
+                citations.append({
+                    "id": doc_id, "label": doc_id, "snippet": get_snippet(doc_id)
+                })
+
+    # Compliance checklist citations (same logic as /api/chat)
+    if "checklist" in raw_result:
+        for item in raw_result["checklist"]:
+            doc_id = item.get("source_doc")
             if doc_id and doc_id not in seen_docs:
                 seen_docs.add(doc_id)
                 citations.append({
@@ -468,7 +520,8 @@ def chat_stream(req: QueryRequest):
             
         if raw_result.get("pdf_path"):
             filename = os.path.basename(raw_result["pdf_path"])
-            text_str = f"\\n\\n[Download Work Order PDF](/generated/{filename})"
+            pdf_url = f"http://localhost:8000/generated/{filename}"
+            text_str = f"\n\n[📄 Download Work Order PDF]({pdf_url})"
             full_text += text_str
             yield f"data: {json.dumps({'text': text_str})}\n\n"
 
@@ -476,7 +529,7 @@ def chat_stream(req: QueryRequest):
         if session_id:
             assistant_msg = dict(meta)  # copy the meta dict
             assistant_msg["text"] = full_text
-            append_message(session_id, assistant_msg)
+            append_message(session_id, assistant_msg, req.operator)
 
         yield "data: [DONE]\n\n"
 
@@ -488,6 +541,12 @@ def chat_history(session_id: str):
     """Return all messages for a given session from MongoDB."""
     messages = get_messages(session_id)
     return messages
+
+
+@app.get("/api/conversations")
+def get_conversations(operator: Optional[str] = None):
+    """Return all conversations, optionally filtered by operator."""
+    return list_conversations(operator)
 
 
 @app.post("/query")
@@ -531,10 +590,10 @@ def create_work_order(req: WorkOrderRequest):
     return {
         "id": wo_data["wo_number"],
         "asset": req.equipment_tag,
-        "title": wo_data.get("title", f"Work Order for {req.equipment_tag}"),
+        "title": f"Work Order {wo_data['wo_number']} — {wo_data.get('description', req.description)}",
         "rootCause": wo_data.get("description", req.description),
-        "recommendedAction": " \u2022 " + "\n \u2022 ".join(wo_data.get("steps", [])[:3]),
-        "downtimeAvoidedHrs": 24, # Static fallback or parse from finding
+        "recommendedAction": wo_data.get("scope_of_work", req.description),
+        "downtimeAvoidedHrs": wo_data.get("estimated_duration_hours", 24),
         "linkedDocs": wo_data.get("related_documents", []),
         "generatedAt": datetime.now().strftime("%Y-%m-%d"),
         "pdfUrl": pdf_url,

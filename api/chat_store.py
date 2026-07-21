@@ -40,23 +40,55 @@ def get_or_create_session(session_id: str) -> dict:
     return doc
 
 
-def append_message(session_id: str, message: dict) -> None:
+def append_message(session_id: str, message: dict, operator: str | None = None) -> None:
     """Push a message dict onto the session's messages array."""
     db = _get_db()
     col = db["conversations"]
 
+    # Auto-title from first user message
+    update = {
+        "$push": {"messages": message},
+        "$setOnInsert": {
+            "session_id": session_id,
+            "created_at": datetime.now(timezone.utc),
+            "operator": operator,
+        },
+    }
+    
+    # Set title from first user message if not already set
+    if message.get("role") == "user":
+        update["$setOnInsert"]["title"] = message.get("text", "")[:60]
+
     # Upsert: create the session if it doesn't exist yet
     col.update_one(
         {"session_id": session_id},
-        {
-            "$push": {"messages": message},
-            "$setOnInsert": {
-                "session_id": session_id,
-                "created_at": datetime.now(timezone.utc),
-            },
-        },
+        update,
         upsert=True,
     )
+
+
+def list_conversations(operator: str | None = None) -> list[dict]:
+    """List all conversations, optionally filtered by operator."""
+    db = _get_db()
+    col = db["conversations"]
+    
+    query = {}
+    if operator:
+        query["operator"] = operator
+        
+    cursor = col.find(
+        query,
+        {"session_id": 1, "title": 1, "created_at": 1, "operator": 1, "_id": 0}
+    ).sort("created_at", -1).limit(50)
+    
+    # Convert datetime objects to ISO strings for JSON serialization
+    results = []
+    for doc in cursor:
+        if isinstance(doc.get("created_at"), datetime):
+            doc["created_at"] = doc["created_at"].isoformat()
+        results.append(doc)
+        
+    return results
 
 
 def get_messages(session_id: str) -> list[dict]:

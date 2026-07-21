@@ -6,7 +6,7 @@
 // so no component code needs to change.
 // -----------------------------------------------------------------------------
 
-import type { ChatMessage, GraphData, WorkOrder, DocumentRecord } from "@/types";
+import type { ChatMessage, GraphData, WorkOrder, DocumentRecord, Conversation } from "@/types";
 import { graphData, mockChat, workOrder, ingestedDocuments } from "@/data/mockData";
 import { predictAgent } from "@/lib/utils";
 
@@ -14,20 +14,59 @@ const MOCK_LATENCY = 500;
 
 const BASE_URL = "http://localhost:8000";
 
-// Persist session ID in sessionStorage so it survives page refreshes
-function initSessionId(): string {
-  let id = sessionStorage.getItem("strata_session_id");
+// Persist session ID in localStorage so it survives page refreshes and tab closes
+export function initSessionId(): string {
+  let id = localStorage.getItem("strata_session_id");
   if (!id) {
     id = crypto.randomUUID();
-    sessionStorage.setItem("strata_session_id", id);
+    localStorage.setItem("strata_session_id", id);
   }
   return id;
 }
 
-const SESSION_ID = initSessionId();
-
 export function getSessionId(): string {
-  return SESSION_ID;
+  return initSessionId();
+}
+
+export function createNewSession(): string {
+  const id = crypto.randomUUID();
+  localStorage.setItem("strata_session_id", id);
+  return id;
+}
+
+export function getOperator(): string | null {
+  return localStorage.getItem("strata_operator");
+}
+
+export function setOperator(name: string) {
+  localStorage.setItem("strata_operator", name);
+}
+
+export async function fetchConversations(operator?: string | null): Promise<Conversation[]> {
+  const url = new URL(`${BASE_URL}/api/conversations`);
+  if (operator) {
+    url.searchParams.append("operator", operator);
+  }
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error("Failed to fetch conversations");
+  return res.json();
+}
+
+export async function fetchAlerts() {
+  const res = await fetch(`${BASE_URL}/api/alerts`);
+  if (!res.ok) throw new Error("Failed to fetch alerts");
+  return res.json();
+}
+
+export async function updateAlertStatus(id: string, status: string, operator?: string | null) {
+  const op = operator !== undefined ? operator : getOperator();
+  const res = await fetch(`${BASE_URL}/api/alerts/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, updated_by: op }),
+  });
+  if (!res.ok) throw new Error("Failed to update alert status");
+  return res.json();
 }
 
 export async function fetchDocuments(): Promise<DocumentRecord[]> {
@@ -53,9 +92,10 @@ export async function fetchGraph(): Promise<GraphData> {
   return res.json();
 }
 
-export async function fetchChatHistory(): Promise<ChatMessage[]> {
+export async function fetchChatHistory(sessionId?: string): Promise<ChatMessage[]> {
+  const sid = sessionId || getSessionId();
   try {
-    const res = await fetch(`${BASE_URL}/api/chat/history?session_id=${SESSION_ID}`);
+    const res = await fetch(`${BASE_URL}/api/chat/history?session_id=${sid}`);
     if (!res.ok) return [];
     return res.json();
   } catch {
@@ -73,13 +113,15 @@ export async function sendQuestion(question: string): Promise<ChatMessage> {
   return res.json();
 }
 
-export async function* sendQuestionStream(question: string) {
+export async function* sendQuestionStream(question: string, sessionId?: string, operator?: string | null) {
+  const sid = sessionId || getSessionId();
+  const op = operator !== undefined ? operator : getOperator();
   let res: Response;
   try {
     res = await fetch(`${BASE_URL}/api/chat/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: question, session_id: SESSION_ID }),
+      body: JSON.stringify({ query: question, session_id: sid, operator: op }),
     });
   } catch {
     // The fetch itself failed — the backend is unreachable (not running,
@@ -126,13 +168,15 @@ export async function* sendQuestionStream(question: string) {
   }
 }
 
-export async function generateWorkOrder(findingContext?: string): Promise<WorkOrder> {
+export async function generateWorkOrder(findingContext?: string, operator?: string | null): Promise<WorkOrder> {
   // Try to extract equipment tag from the context (e.g. "P-101") if passed, else fallback
   let equipment_tag = "P-101";
   if (findingContext) {
     const match = findingContext.match(/[A-Z]+-\d+/);
     if (match) equipment_tag = match[0];
   }
+  
+  const op = operator !== undefined ? operator : getOperator();
   
   const res = await fetch(`${BASE_URL}/api/work-order`, {
     method: "POST",
@@ -141,7 +185,7 @@ export async function generateWorkOrder(findingContext?: string): Promise<WorkOr
       equipment_tag,
       description: findingContext ? `Fix issue: ${findingContext}` : "General maintenance",
       priority: "high",
-      requester: "System Generated (RCA Agent)"
+      requester: op || "System Generated (RCA Agent)"
     }),
   });
   if (!res.ok) throw new Error("Failed to generate work order");

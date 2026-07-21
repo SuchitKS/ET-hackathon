@@ -51,9 +51,9 @@ def _gather_context(equipment_tag: str, kg, vs) -> dict:
 
     # Related documents
     doc_ids = kg.documents_mentioning(equipment_tag)
-    vs_lookup = {did: (text, meta) for did, text, meta in zip(vs.doc_ids, vs.texts, vs.metadatas)}
     for doc_id in doc_ids:
-        text, meta = vs_lookup.get(doc_id, ("", {}))
+        text = vs.get_full_text(doc_id)
+        meta = vs.get_metadata(doc_id)
         context["related_documents"].append({
             "doc_id": doc_id,
             "doc_type": meta.get("doc_type", "unknown"),

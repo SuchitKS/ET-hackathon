@@ -49,7 +49,7 @@ export default function ChatMessageItem({
 
   // Investigation Card — the main response format
   return (
-    <div className="investigation-card mb-8 animate-fade-in flex flex-col overflow-hidden bg-surface border border-line rounded-xl shadow-soft">
+    <div className="investigation-card mb-8 animate-slide-up flex flex-col overflow-hidden bg-surface border border-line rounded-xl shadow-soft hover:shadow-lift transition-shadow duration-300">
       {/* Header — Trace Summary */}
       {message.agent && (
         <div className="border-b border-line/50">
@@ -60,7 +60,15 @@ export default function ChatMessageItem({
       {/* Answer Content */}
       <div className="px-8 py-8">
         <div className="prose-strata">
-          <ReactMarkdown>{message.text}</ReactMarkdown>
+          <ReactMarkdown
+            components={{
+              a: ({ href, children, ...props }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                  {children}
+                </a>
+              ),
+            }}
+          >{message.text}</ReactMarkdown>
         </div>
       </div>
 

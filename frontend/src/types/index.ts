@@ -82,3 +82,24 @@ export interface WorkOrder {
   generatedAt: string;
   pdfUrl?: string | null;
 }
+
+export interface Conversation {
+  session_id: string;
+  title?: string;
+  created_at: string;
+  operator?: string;
+}
+
+export type AlertStatus = "active" | "monitoring" | "false_positive" | "cleared" | "under_maintenance";
+
+export interface Alert {
+  id: string;
+  type: "warning" | "info";
+  message: string;
+  asset: string;
+  source: string;
+  status: AlertStatus;
+  created_at: string;
+  updated_at: string;
+  updated_by?: string | null;
+}
