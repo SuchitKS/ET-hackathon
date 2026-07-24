@@ -1,13 +1,27 @@
-# STRATA
+<p align="center">
+  <img src="docs/images/logo.png" width="180" alt="STRATA Logo"/>
+</p>
 
-> **Industrial Knowledge Intelligence Platform**
+<h1 align="center">STRATA</h1>
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green)
-![React](https://img.shields.io/badge/React-Frontend-61DAFB)
-![Neo4j](https://img.shields.io/badge/Neo4j-Knowledge%20Graph-008CC1)
-![Qdrant](https://img.shields.io/badge/Qdrant-Vector%20DB-red)
-![MongoDB](https://img.shields.io/badge/MongoDB-Database-47A248)
+<p align="center">
+  <strong>Industrial Knowledge Intelligence Platform</strong>
+</p>
+
+<p align="center">
+Transforming industrial knowledge into actionable intelligence using Hybrid RAG, Knowledge Graphs, and AI Agent Orchestration.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10+-blue"/>
+  <img src="https://img.shields.io/badge/FastAPI-Backend-green"/>
+  <img src="https://img.shields.io/badge/React-Frontend-61DAFB"/>
+  <img src="https://img.shields.io/badge/Neo4j-Knowledge%20Graph-008CC1"/>
+  <img src="https://img.shields.io/badge/Qdrant-Vector%20DB-red"/>
+  <img src="https://img.shields.io/badge/MongoDB-Database-47A248"/>
+</p>
+
+---
 
 STRATA is an AI-powered Industrial Knowledge Intelligence Platform that transforms engineering documents into an interconnected knowledge ecosystem. By combining **Hybrid Retrieval-Augmented Generation (Hybrid RAG)**, a **Neo4j Knowledge Graph**, **Qdrant Vector Search**, and a **hierarchical multi-agent architecture**, STRATA enables engineers to retrieve accurate information, perform Root Cause Analysis (RCA), verify compliance, and automatically generate maintenance work orders.
 
