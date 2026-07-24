@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="docs/images/logo.png" width="180" alt="STRATA Logo"/>
-</p>
-
 <h1 align="center">STRATA</h1>
 
 <p align="center">
